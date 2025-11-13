@@ -1,0 +1,16 @@
+[project]
+name = "ai-test"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dashscope>=1.25.0",
+    "fastapi>=0.121.1",
+    "modelscope>=1.31.0",
+    "numpy>=2.3.4",
+    "openai>=2.7.2",
+    "pydantic>=2.12.4",
+    "requests>=2.32.5",
+    "uvicorn>=0.38.0",
+]
