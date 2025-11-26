@@ -151,3 +151,31 @@ uv sync
 * `uv` 集成了 Python 版本管理、虚拟环境管理和依赖管理。
 * 适合多项目隔离、快速启动、Agent 开发和部署。
 * 配合 `uv.lock` 或 `requirements.txt` 可轻松在其他机器同步环境。
+
+
+
+
+
+```shell
+uv init # 初始化
+uv venv # 创建环境
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+
+
+## 🛠️ 常用查看命令速查表
+
+| 查看内容            | 命令                                                         |
+| :------------------ | :----------------------------------------------------------- |
+| Python 解析器路径   | which python 或 python -c "import sys; print(sys.executable)" |
+| Python 版本         | python --version                                             |
+| 虚拟环境路径        | echo $VIRTUAL_ENV                                            |
+| Python 模块路径     | python -c "import sys; print('\\n'.join(sys.path))"          |
+| PATH 环境变量       | echo $PATH                                                   |
+| 所有环境变量        | env 或 printenv                                              |
+| Python 相关环境变量 | env \| grep -i python                                        |
+| pip 安装位置        | which pip                                                    |
+| 已安装的包          | pip list                                                     |
+| pyenv 版本          | pyenv version                                                |
