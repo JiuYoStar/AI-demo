@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 # 常量定义
 EXCEL_FILE = 'hospital_bed_usage_data.xlsx'
-DATA_DIR = 'data_cache'
+DATA_DIR = 'caches'
 CACHE_FILE = os.path.join(DATA_DIR, 'data_cache.pkl')
 METADATA_FILE = os.path.join(DATA_DIR, 'metadata.json')
 

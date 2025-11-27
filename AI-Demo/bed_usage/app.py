@@ -1,197 +1,33 @@
 from flask import Flask, render_template, jsonify
 import pandas as pd
-import json
 import time
 import os
-import pickle
-import hashlib
 import threading
-import logging
-from logging.handlers import RotatingFileHandler
 from datetime import datetime
+from configs.logger import setup_logging, get_logger
+from caches.cache_manager import (
+    _cache, init_cache_paths, is_excel_updated, is_cache_newer_than_excel,
+    save_cache_to_file, load_cache_from_file
+)
 
+# 统一基准目录
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # -----------------------------日志---------------------------------
-# 配置日志记录器
-LOG_DIR = os.path.join(os.path.dirname(__file__), 'logs')
-print(LOG_DIR, '<< LOG_DIR')
-os.makedirs(LOG_DIR, exist_ok=True) # 确保日志目录存在
-LOG_FILE = os.path.join(LOG_DIR, 'app.log') # 日志文件路径
-
-# 创建日志格式器
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-# 创建轮转文件处理器（单个文件最大10MB，保留5个备份文件）
-file_handler = RotatingFileHandler(
-    LOG_FILE,
-    maxBytes=10*1024*1024,  # 10MB
-    backupCount=5,           # 保留5个备份文件
-    encoding='utf-8'
-)
-file_handler.setFormatter(formatter)
-
-# 创建控制台处理器
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(formatter)
-
-# 配置根日志记录器
-logging.basicConfig(
-    level=logging.INFO,
-    handlers=[file_handler, console_handler]
-)
-logger = logging.getLogger(__name__) # -> ‘app.log’ 当前模块专属的logger
-'''
-  当前模块专属的logger -> 输出到app.log文件
-  logger.info("server started")
-      -> 2025-11-25 10:30:20 - app.py - INFO - Server started
-  logger.error("something wrong")
-      -> 2025-11-25 10:30:21 - app.py - ERROR - Database connection failed
-
-  | 功能                | 说明           |
-  | ----------------- | ------------ |
-  | 日志目录自动创建          | 避免运行时崩溃      |
-  | 日志轮转（10MB × 5 文件） | 防止磁盘被 log 填满 |
-  | 统一格式 + 时间戳        | 排查问题更清晰      |
-  | 控制台 + 文件双输出       | 开发 / 生产两不误   |
-  | 模块级 logger        | 精细控制日志来源     |
-
-'''
+setup_logging()
+logger = get_logger(__name__)
 
 # -----------------------------Flask应用---------------------------------
 
 app = Flask(__name__)
 
 # -----------------------------全局缓存变量---------------------------------
-# 1. 提高响应速度 -> excel读取+pandas解析比较耗时
-# 2. 避免重复计算 -> 如果数据没有变化，直接返回缓存数据，避免cpu开销
-# 3. 文件检测变更 -> 记录excel的修改时间和md5值
-# 4. 防止计算冲突 -> 根据precomputing标识,防止频发触发计算任务
-_cache = {
-    'data': None,
-    'hospital_usage': None, # web数据 -> 各医院使用率
-    'department_usage': None, # 科室数据 -> 各科室使用率
-    'heatmap_data': None, # 热力图数据 -> 医院科室使用率
-    'summary_data': None, # 概览数据 -> 空闲病床数量汇总
-    'timestamp': 0, # 时间戳 -> 数据更新时间
-    'cache_ttl': 300,  # 缓存时间(秒)，5分钟
-    'excel_last_modified': 0,  # Excel文件最后修改时间
-    'excel_md5': '',  # Excel文件的MD5值 -> 文件内容校验
-    'precomputing': False,  # 标记是否正在预计算 -> 防止频发触发计算任务
-    'ready': False,  # 标记所有数据是否准备就绪 -> 标记所有数据是否准备就绪，避免重复计算
-}
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CACHE_DIR = os.path.join(BASE_DIR, 'data_cache')
-CACHE_FILE = os.path.join(CACHE_DIR, 'data_cache.pkl')
-METADATA_FILE = os.path.join(CACHE_DIR, 'metadata.json')
+# 初始化缓存路径
+cache_paths = init_cache_paths(BASE_DIR)
+CACHE_DIR = cache_paths['CACHE_DIR']
+CACHE_FILE = cache_paths['CACHE_FILE']
+METADATA_FILE = cache_paths['METADATA_FILE']
 EXCEL_FILE = os.path.join(BASE_DIR, 'hospital_bed_usage_data.xlsx')
-
-# 确保缓存目录存在
-if not os.path.exists(CACHE_DIR):
-    os.makedirs(CACHE_DIR)
-
-# 计算文件MD5
-def get_file_md5(filepath):
-    """计算文件的MD5哈希值"""
-    try:
-        md5_hash = hashlib.md5()
-        with open(filepath, "rb") as f:
-            # 读取文件块并更新哈希
-            for byte_block in iter(lambda: f.read(4096), b""):
-                md5_hash.update(byte_block)
-        return md5_hash.hexdigest()
-    except Exception as e:
-        logger.error(f"计算MD5异常: {e}")
-        return ""
-
-# 检查Excel文件是否更新
-def is_excel_updated():
-    """检查Excel文件是否有更新"""
-    try:
-        # 获取当前文件修改时间和MD5
-        current_mtime = os.path.getmtime(EXCEL_FILE)
-        current_md5 = get_file_md5(EXCEL_FILE)
-
-        # 如果修改时间或MD5与缓存不同，则文件已更新
-        if (current_mtime != _cache['excel_last_modified'] or
-            current_md5 != _cache['excel_md5']):
-            _cache['excel_last_modified'] = current_mtime
-            _cache['excel_md5'] = current_md5
-            return True
-        return False
-    except Exception as e:
-        logger.error(f"检查文件更新异常: {e}")
-        return True  # 出错时假设文件已更新，重新加载数据
-
-# 检查缓存文件是否比Excel文件更新
-def is_cache_newer_than_excel():
-    """检查缓存文件是否比Excel文件更新（即缓存是最新的）"""
-    try:
-        if not os.path.exists(EXCEL_FILE) or not os.path.exists(CACHE_FILE):
-            return False
-
-        excel_time = os.path.getmtime(EXCEL_FILE)
-        cache_time = os.path.getmtime(CACHE_FILE)
-
-        # 缓存文件修改时间晚于Excel文件，说明缓存是最新的
-        return cache_time > excel_time
-    except Exception as e:
-        logger.error(f"比较文件时间异常: {e}")
-        return False
-
-# 保存缓存到文件
-def save_cache_to_file():
-    """将计算结果保存到本地文件"""
-    try:
-        with open(CACHE_FILE, 'wb') as f:
-            # 只保存必要的数据，不包括原始DataFrame
-            cache_to_save = {
-                'hospital_usage': _cache['hospital_usage'],
-                'department_usage': _cache['department_usage'],
-                'heatmap_data': _cache['heatmap_data'],
-                'summary_data': _cache['summary_data'],
-                'timestamp': _cache['timestamp'],
-                'excel_last_modified': _cache['excel_last_modified'],
-                'excel_md5': _cache['excel_md5']
-            }
-            pickle.dump(cache_to_save, f)
-
-        # 保存元数据到JSON文件
-        metadata = {
-            'excel_md5': _cache['excel_md5'],
-            'excel_last_modified': _cache['excel_last_modified'],
-            'computation_time': _cache['timestamp'],
-            'formatted_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-
-        with open(METADATA_FILE, 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, ensure_ascii=False, indent=2)
-
-        logger.info(f"缓存已保存到 {CACHE_FILE}")
-    except Exception as e:
-        logger.error(f"保存缓存异常: {e}")
-
-# 从文件加载缓存
-def load_cache_from_file():
-    """从本地文件加载缓存数据"""
-    try:
-        if os.path.exists(CACHE_FILE):
-            with open(CACHE_FILE, 'rb') as f:
-                cache_data = pickle.load(f)
-
-                # 更新全局缓存
-                _cache.update(cache_data)
-
-                if all(key in _cache and _cache[key] is not None for key in
-                      ['hospital_usage', 'department_usage', 'heatmap_data', 'summary_data']):
-                    _cache['ready'] = True
-
-                logger.info(f"从文件加载缓存成功，数据时间戳: {datetime.fromtimestamp(_cache['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}")
-                return True
-        return False
-    except Exception as e:
-        logger.error(f"加载缓存异常: {e}")
-        return False
 
 # 使用缓存机制读取Excel数据
 def load_data(force_reload=False):
@@ -203,7 +39,7 @@ def load_data(force_reload=False):
     need_reload = (
         _cache['data'] is None or  # 没有数据
         force_reload or  # 强制刷新
-        is_excel_updated() or  # Excel文件已更新
+        is_excel_updated(EXCEL_FILE, logger) or  # Excel文件已更新
         current_time - _cache['timestamp'] > _cache['cache_ttl']  # 缓存过期
     )
 
@@ -235,8 +71,8 @@ def precompute_data(force_recompute=False):
 
     try:
         # 检查是否可以使用预先计算好的缓存文件
-        if not force_recompute and is_cache_newer_than_excel():
-            if load_cache_from_file():
+        if not force_recompute and is_cache_newer_than_excel(EXCEL_FILE, CACHE_FILE, logger):
+            if load_cache_from_file(CACHE_FILE, logger):
                 logger.info("使用预先计算的缓存数据，无需重新计算")
                 _cache['precomputing'] = False
                 _cache['ready'] = True
@@ -246,9 +82,9 @@ def precompute_data(force_recompute=False):
         if (not force_recompute and
             _cache['hospital_usage'] is None and
             _cache['department_usage'] is None):
-            if load_cache_from_file():
+            if load_cache_from_file(CACHE_FILE, logger):
                 # 检查Excel文件是否更新，如果没更新直接使用缓存
-                if not is_excel_updated():
+                if not is_excel_updated(EXCEL_FILE, logger):
                     logger.info("使用文件缓存数据，Excel未更新")
                     _cache['precomputing'] = False
                     _cache['ready'] = True
@@ -358,7 +194,7 @@ def precompute_data(force_recompute=False):
 
         # 如果数据有变化，保存到文件
         if data_changed:
-            save_cache_to_file()
+            save_cache_to_file(CACHE_FILE, METADATA_FILE, logger)
 
         end_time = time.time()
         logger.info(f"数据计算完成，耗时: {end_time - start_time:.2f} 秒")
@@ -434,7 +270,7 @@ def index():
     # 只检查是否有缓存，如无则启动异步预计算
     if not _cache['ready']:
         # 先尝试从文件加载缓存
-        if not load_cache_from_file() or not _cache['ready']:
+        if not load_cache_from_file(CACHE_FILE, logger) or not _cache['ready']:
             # 如果加载失败或缓存不完整，启动异步预计算
             async_precompute()
 
@@ -449,7 +285,7 @@ def hospital_usage():
 
     # 如果没有数据，先尝试从文件加载
     if not _cache['ready'] and not _cache['precomputing']:
-        if load_cache_from_file() and _cache['hospital_usage'] is not None:
+        if load_cache_from_file(CACHE_FILE, logger) and _cache['hospital_usage'] is not None:
             return jsonify(_cache['hospital_usage'])
 
         # 如果仍然没有数据，启动异步计算
@@ -472,7 +308,7 @@ def department_usage():
 
     # 如果没有数据，先尝试从文件加载
     if not _cache['ready'] and not _cache['precomputing']:
-        if load_cache_from_file() and _cache['department_usage'] is not None:
+        if load_cache_from_file(CACHE_FILE, logger) and _cache['department_usage'] is not None:
             return jsonify(_cache['department_usage'])
 
         # 如果仍然没有数据，启动异步计算
@@ -496,7 +332,7 @@ def hospital_dept_heatmap():
 
     # 如果没有数据，先尝试从文件加载
     if not _cache['ready'] and not _cache['precomputing']:
-        if load_cache_from_file() and _cache['heatmap_data'] is not None:
+        if load_cache_from_file(CACHE_FILE, logger) and _cache['heatmap_data'] is not None:
             return jsonify(_cache['heatmap_data'])
 
         # 如果仍然没有数据，启动异步计算
@@ -518,7 +354,7 @@ def free_beds_summary():
 
     # 如果没有数据，先尝试从文件加载
     if not _cache['ready'] and not _cache['precomputing']:
-        if load_cache_from_file() and _cache['summary_data'] is not None:
+        if load_cache_from_file(CACHE_FILE, logger) and _cache['summary_data'] is not None:
             return jsonify(_cache['summary_data'])
 
         # 如果仍然没有数据，启动异步计算
@@ -580,7 +416,7 @@ def run_precompute():
 if __name__ == '__main__':
     # 启动应用前加载缓存数据
     logger.info("正在启动应用，尝试加载预计算数据...")
-    cache_loaded = load_cache_from_file()
+    cache_loaded = load_cache_from_file(CACHE_FILE, logger)
 
     if cache_loaded:
         logger.info("成功加载预计算数据，应用准备就绪")
@@ -588,13 +424,13 @@ if __name__ == '__main__':
         logger.info("未找到预计算数据或加载失败")
         # 如果缓存不是最新的，尝试运行预计算脚本
         precompute_script = os.path.join(BASE_DIR, 'precompute_data.py')
-        if not is_cache_newer_than_excel() and os.path.exists(precompute_script):
+        if not is_cache_newer_than_excel(EXCEL_FILE, CACHE_FILE, logger) and os.path.exists(precompute_script):
             logger.info("尝试运行预计算脚本...")
             try_run_precompute_script()
             # 等待3秒让预计算脚本开始运行
             time.sleep(3)
             # 再次尝试加载缓存
-            cache_loaded = load_cache_from_file()
+            cache_loaded = load_cache_from_file(CACHE_FILE, logger)
             if cache_loaded:
                 logger.info("预计算数据已加载，应用准备就绪")
 
