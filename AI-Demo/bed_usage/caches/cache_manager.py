@@ -26,7 +26,7 @@ def init_cache_paths(base_dir):
     :return: 包含路径信息的字典
     """
     cache_dir = os.path.join(base_dir, 'caches')
-
+    print(f'{cache_dir} << 缓存文件目录')
     # 确保缓存目录存在
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
