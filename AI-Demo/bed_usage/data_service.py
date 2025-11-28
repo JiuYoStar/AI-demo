@@ -235,7 +235,6 @@ def precompute_data(force_recompute=False):
     finally:
         _cache['precomputing'] = False  # 解锁
 
-
 # 异步预计算数据
 def async_precompute():
     """在后台线程中预计算数据"""

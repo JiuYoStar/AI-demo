@@ -165,6 +165,7 @@ def compute_status():
 def run_precompute():
     """手动触发预计算过程"""
     success = try_run_precompute_script()
+    logger.info(f"success: {success}")
     return jsonify({
         'status': 'success' if success else 'error',
         'message': '预计算脚本已启动' if success else '无法启动预计算脚本'
@@ -174,6 +175,7 @@ if __name__ == '__main__':
     # 启动应用前加载缓存数据
     logger.info("正在启动应用，尝试加载预计算数据...")
     cache_loaded = load_cache_from_file(CACHE_FILE, logger)
+    logger.info(f"cache_loaded: {cache_loaded}")
 
     if cache_loaded:
         logger.info("成功加载预计算数据，应用准备就绪")
