@@ -19,22 +19,26 @@ _cache = {
     'ready': False,  # 标记所有数据是否准备就绪 -> 标记所有数据是否准备就绪，避免重复计算
 }
 
-def init_cache_paths(base_dir):
-    """
-    初始化缓存路径
-    :param base_dir: 基准目录
-    :return: 包含路径信息的字典
-    """
-    cache_dir = os.path.join(base_dir, 'caches')
-    print(f'{cache_dir} << 缓存文件目录')
-    # 确保缓存目录存在
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir)
 
+# 路径配置
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+EXCEL_FILE = os.path.join(BASE_DIR, 'hospital_bed_usage_data.xlsx')
+CACHE_DIR = os.path.join(BASE_DIR, 'caches')
+CACHE_FILE = os.path.join(CACHE_DIR, 'data_cache.pkl')
+METADATA_FILE = os.path.join(CACHE_DIR, 'metadata.json')
+
+# 确保缓存目录存在
+if not os.path.exists(CACHE_DIR):
+    os.makedirs(CACHE_DIR)
+
+def init_cache_paths(base_dir=None):
+    """
+    初始化缓存路径 (保留用于兼容，但主要使用模块级常量)
+    """
     return {
-        'CACHE_DIR': cache_dir,
-        'CACHE_FILE': os.path.join(cache_dir, 'data_cache.pkl'),
-        'METADATA_FILE': os.path.join(cache_dir, 'metadata.json')
+        'CACHE_DIR': CACHE_DIR,
+        'CACHE_FILE': CACHE_FILE,
+        'METADATA_FILE': METADATA_FILE
     }
 
 def get_file_md5(filepath, logger=None):
