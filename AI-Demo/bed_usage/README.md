@@ -1,199 +1,107 @@
-# 医院病床使用情况可视化大屏
+# Bed Usage Analysis System
 
-这是一个用于实时监控香港医院病床使用情况的可视化大屏系统。
-
-## 功能特点
-
-- **占用率展示**：显示各医院及科室的病床使用率
-- **空闲病床数据**：实时展示空闲病床数量及分布情况
-- **病床分布情况**：通过热力图展示不同医院和科室的病床使用情况
-- **信息概览**：总病床数、已用病床数、空闲病床数和整体使用率的实时数据
-
-## 技术栈
-
-- **后端**：Python + Flask
-- **前端**：HTML + CSS + JavaScript
-- **数据可视化**：ECharts
-- **数据处理**：Pandas
+## 简介
+这是一个基于 Flask 和 Pandas 的医院床位使用情况分析系统。系统通过读取 Excel 数据文件，计算各医院和科室的床位使用率、空闲情况等指标，并提供 RESTful API 供前端展示。系统实现了完善的缓存机制，以提高大规模数据处理时的响应速度。
 
 ## 系统架构流程图
 
-### 1. 系统启动与初始化流程 (Main Flow)
+```mermaid
+graph TD
+    %% 定义样式
+    classDef process fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef storage fill:#fff9c4,stroke:#fbc02d,stroke-width:2px;
+    classDef decision fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,rhombus;
+    classDef interface fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
+    classDef log fill:#424242,stroke:#000,stroke-width:1px,color:#fff;
 
-                    +----------------------------+
-                    |        Start app.py        |
-                    +-------------+--------------+
-                                  |
-                                  v
-                +--------------------------------------------+
-                |      Init logging module: setup_logging()   |
-                +-----------------+----------------------------+
-                                  |
-                                  v
-                +--------------------------------------------+
-                |   Create logs/ directory & logs/app.log     |
-                +-----------------+----------------------------+
-                                  |
-                                  v
-                +--------------------------------------------+
-                |   Init cache directory: init_cache_paths    |
-                +-----------------+----------------------------+
-                                  |
-                                  v
-                +--------------------------------------------------------+
-                |  Try load disk cache: caches/data_cache.pkl ?          |
-                +--------------------------+-----------------------------+
-                                           |
-                             +-------------+-------------+
-                             |                           |
-                             | YES                       | NO
-                             v                           v
-           +--------------------------------+     +--------------------------------------+
-           |   Memory _cache updated        |     |  Trigger async_precompute()          |
-           +---------------+----------------+     +----------------+---------------------+
-                           |                                      |
-                           v                                      v
-                     +------------------+                   +------------------+
-                     | Start Flask      |                   | Start Flask      |
-                     | Server : 8989    |                   | Server : 8989    |
-                     +------------------+                   +------------------+
+    subgraph Client ["客户端 / API 调用"]
+        API_Req[("HTTP 请求<br>(/api/hospital_usage 等)")]:::interface
+    end
 
+    subgraph App_Layer ["Flask 应用层 (app.py)"]
+        Start(应用启动):::process
+        Route_Handler(路由处理):::process
+        Mem_Cache[("内存缓存<br>(_cache)")]:::storage
+        Async_Task(异步预计算线程):::process
+    end
 
-### 2. 数据缓存与更新策略 (Caching Strategy)
+    subgraph Service_Layer ["数据服务层 (data_service.py)"]
+        Precompute(precompute_data<br>预计算聚合逻辑):::process
+        Load_Excel(load_data<br>读取 Excel):::process
+        Calc_Stats(计算统计/热力图):::process
+    end
 
-                      Client Request /api/xxx
-                                |
-                                v
-+-------------------------------------------------------------+
-| 1. Is memory cache (_cache) available?                      |
-+------------------------------+------------------------------+
-                               |
-                 +-------------+-----------------------+
-                 |                                     |
-                 | YES                                 | NO
-                 v                                     v
-     Return memory result (FASTEST)     +-----------------------------+
-                 |                      | 2. Is disk cache exists?    |
-                 v                      +--------------+--------------+
-               END                                     |
-                                        +--------------+------------+
-                                        |                           |
-                                        | NO                        | YES
-                                        v                           v
-                          +------------------------------+   +----------------------------+
-                          | Trigger async_precompute()   |   | 3. Is disk cache newer     |
-                          +---------------+--------------+   |    than Excel file?        |
-                                          |                  +-------------+--------------+
-                                          v                                |
-                             Return empty/loading                          |
-                             (temporary)                                   |
-                                          |                                |
-                                          v                                v
-                                        END                    +----------------------------+
-                                                               |  Load disk cache ->        |
-                                                               |  write to memory           |
-                                                               +-------------+--------------+
-                                                                           |
-                                                                           v
-                                                                   Return memory data
-                                                                           |
-                                                                           v
-                                                                           END
+    subgraph Cache_Layer ["缓存管理层 (cache_manager.py)"]
+        Check_Update{Excel<br>是否更新?}:::decision
+        Check_Cache_File{缓存文件<br>是否存在/更新?}:::decision
+        Load_File_Cache(load_cache_from_file):::process
+        Save_File_Cache(save_cache_to_file):::process
+        MD5_Check(MD5 / 时间戳校验):::process
+    end
 
-                                                           (If NO)
-                                                             |
-                                                             v
-                                             Trigger async_precompute()
-                                                             |
-                                                             v
-                                             Return empty/loading (temporary)
+    subgraph File_System ["文件系统"]
+        Excel_File[("hospital_bed_usage_data.xlsx")]:::storage
+        Cache_File[("caches/data_cache.pkl<br>caches/metadata.json")]:::storage
+        Log_File[("configs/logs/app.log")]:::log
+    end
 
+    %% 启动流程
+    Start --> Check_Cache_File
+    Check_Cache_File -- 是 --> Load_File_Cache
+    Check_Cache_File -- 否 --> Async_Task
+    Load_File_Cache --> Mem_Cache
+    Load_File_Cache --> Check_Update
+    Check_Update -- 是 (过期) --> Async_Task
+    Check_Update -- 否 (有效) --> App_Ready[应用就绪]
 
+    %% API 请求流程
+    API_Req --> Route_Handler
+    Route_Handler --> Mem_Cache
+    Mem_Cache -- 命中 --> Return_JSON[返回 JSON 数据]:::interface
+    Mem_Cache -- 未命中 --> Load_File_Cache
+    Load_File_Cache -- 成功 --> Return_JSON
+    Load_File_Cache -- 失败 --> Async_Task
+    Async_Task -.-> Return_Empty[返回空数据/状态]:::interface
 
-### 3. 日志模块架构 (Logging Architecture)
+    %% 数据处理与缓存流程
+    Async_Task --> Precompute
+    Precompute --> Load_Excel
+    Load_Excel --> Excel_File
+    Precompute --> Calc_Stats
+    Calc_Stats --> Save_File_Cache
+    Save_File_Cache --> Cache_File
+    Save_File_Cache --> Mem_Cache
 
-+--------------------------------------------------------------+
-|                       configs/logger.py                      |
-+----------------------------+---------------------------------+
-                             |
-                             v
-                 +------------------------+
-                 |     setup_logging      |
-                 +-----------+------------+
-                             |
-         +-------------------+--------------------+
-         |                                        |
-         v                                        v
-+--------------------------+        +---------------------------+
-| Formatter                |        | RotatingFileHandler       |
-| (Time - Name - Level...) |        | (10MB x 5 backup)         |
-+--------------------------+        +------------+--------------+
-                                                |
-                                                v
-                                    +--------------------------+
-                                    |       logs/ directory     |
-                                    +-----------+--------------+
-                                                |
-                                                v
-                                    +--------------------------+
-                                    |       app.log file       |
-                                    +--------------------------+
-                                                |
-                                                v
-                                    +---------------------------+
-                                    |      StreamHandler        |
-                                    |    (Console Output)       |
-                                    +---------------------------+
+    %% 日志记录
+    Start -.-> Log_File
+    Precompute -.-> Log_File
+    API_Req -.-> Log_File
+    Error_Handler -.-> Log_File
 
-
-+---------------------------------------------------------------+
-|                           调用方                               |
-+--------------------+----------------------+-------------------+
-                     |                      |
-                     v                      v
-            +---------------+       +-------------------------+
-            |    app.py     |       |    cache_manager.py     |
-            +-------+-------+       +-----------+-------------+
-                    |                           |
-                    v                           v
-            +---------------------------------------------+
-            |              LoggerInstance                 |
-            +-------------------+-------------------------+
-                                |
-                                v
-                     Sends logs to setup_logging
-
-
-## 快速开始
-
-1. 安装依赖：
-
-```bash
-pip install flask pandas openpyxl matplotlib seaborn
 ```
 
-2. 运行应用：
+## 核心逻辑说明
 
-```bash
-python app.py
-```
+### 1. 缓存策略 (Cache Strategy)
+系统采用 **内存 + 文件** 的二级缓存策略：
+1.  **一级缓存 (内存)**: `_cache` 字典，最快访问速度。
+2.  **二级缓存 (文件)**: `pickle` 序列化文件，用于持久化和跨重启共享。
+3.  **缓存失效**: 通过对比 Excel 文件的 **修改时间** 和 **MD5** 值来判断缓存是否过期。
 
-3. 访问系统：
+### 2. 数据预计算 (Precomputation)
+为了避免每次请求都解析庞大的 Excel 文件，系统在后台进行预计算：
+*   **触发时机**: 应用启动时、缓存过期时、或 API 请求未命中缓存时。
+*   **计算内容**: 医院/科室床位总数、占用率、热力图数据等。
+*   **并发控制**: 使用 `threading` 和 `_cache['precomputing']` 标志位防止重复计算。
 
-在浏览器中打开 `http://127.0.0.1:8989`
+### 3. 日志系统 (Logging)
+*   使用 `RotatingFileHandler` 实现日志轮转（10MB/文件，保留5个）。
+*   同时输出到控制台和 `configs/logs/app.log`。
+*   记录关键操作：启动、数据加载、缓存更新、错误堆栈。
 
-## 文件结构
-
-- `app.py` - Flask应用主程序
-- `hospital_bed_usage_data.xlsx` - 病床使用数据源
-- `templates/index.html` - 可视化大屏前端界面
-- `configs/logger.py` - 日志配置文件
-- `caches/cache_manager.py` - 缓存管理模块
-- `view_excel_data.py` - 数据分析脚本(辅助工具)
-
-## 可视化图表说明
-
-- **总体概况**：显示数据概览和科室空闲病床分布饼图
-- **各医院病床使用率**：横向条形图展示各医院的病床使用率
-- **主要科室病床使用率**：柱状图展示主要科室的病床使用率
-- **医院-科室病床使用率热力图**：用热力图展示各医院各科室的病床使用情况
+## 目录结构
+*   `app.py`: Flask 应用入口，路由定义。
+*   `data_service.py`: 核心业务逻辑，数据计算与处理。
+*   `caches/cache_manager.py`: 缓存文件读写与校验工具。
+*   `configs/logger.py`: 日志配置。
+*   `precompute_data.py`: 独立的可执行脚本，用于定时任务或手动触发预计算。
