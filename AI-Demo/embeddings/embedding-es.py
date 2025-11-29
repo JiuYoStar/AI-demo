@@ -34,8 +34,8 @@ EMBED_DIM = 1024                        # 向量维度
 
 # Elasticsearch 客户端
 es = Elasticsearch(
-    ES_HOST,
-    basic_auth=(ES_USER, ES_PASSWORD)
+    ES_HOST
+    # basic_auth=(ES_USER, ES_PASSWORD) # 本地无密码环境注释掉认证
 )
 
 # OpenAI Compatible 客户端（如 DashScope）
@@ -169,3 +169,5 @@ if __name__ == "__main__":
 
     query = "我想了解迪士尼门票退款的规则"
     semantic_search(query)
+
+# 可扩展一下,将Embedding内容写入
