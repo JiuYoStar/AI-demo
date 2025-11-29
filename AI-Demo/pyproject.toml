@@ -9,6 +9,8 @@ dependencies = [
     "elasticsearch>=9.2.0",
     "faiss-cpu==1.10.0",
     "fastapi>=0.121.1",
+    "gensim>=4.4.0",
+    "jieba>=0.42.1",
     "langchain>=1.1.0",
     "langchain-community>=0.4.1",
     "matplotlib>=3.10.7",
