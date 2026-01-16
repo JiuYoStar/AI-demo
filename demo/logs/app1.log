@@ -1,0 +1,15 @@
+HEADER: System starting...
+HEADER: Version 1.0.0
+HEADER: Init database...
+HEADER: Auth service online.
+HEADER: Cache warmed up.
+HEADER: Connection pool created.
+HEADER: Listener started on port 8080.
+HEADER: Ready to receive traffic.
+HEADER: --- End of Header ---
+INFO: User login 101
+ERROR: [Code404] Resource not found
+INFO: User logout 101
+ERROR: [Code500] Internal Server Error
+INFO: Routine check...
+ERROR: [Code403] Forbidden access

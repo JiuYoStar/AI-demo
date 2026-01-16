@@ -1,0 +1,15 @@
+HEADER: Log secondary service...
+HEADER: Log level: DEBUG
+HEADER: Trace ID enabled.
+HEADER: Node-02 active.
+HEADER: Network latency 5ms.
+HEADER: Storage sync 100%.
+HEADER: Memory usage 20%.
+HEADER: CPU load 5%.
+HEADER: Heatbeat OK.
+HEADER: --- End of Header ---
+INFO: Service health check passed.
+ERROR: [Code502] Bad Gateway
+INFO: Background task finished.
+ERROR: [Code504] Gateway Timeout
+ERROR: [Code1001] Database timeout
