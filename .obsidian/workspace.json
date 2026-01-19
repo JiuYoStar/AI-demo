@@ -1,0 +1,201 @@
+{
+  "main": {
+    "id": "36139311c0aba3a1",
+    "type": "split",
+    "children": [
+      {
+        "id": "78cd88d6259194c2",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c978c6e8477d2099",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "基础语法/10. 映射.md",
+                "mode": "preview",
+                "source": true
+              },
+              "icon": "lucide-file",
+              "title": "10. 映射"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "b9155c29cbe30a7a",
+    "type": "split",
+    "children": [
+      {
+        "id": "c46cc79c6f664924",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "6101aaf2f290e191",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "文件列表"
+            }
+          },
+          {
+            "id": "f6bbe9e4b8e3b1f5",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "搜索"
+            }
+          },
+          {
+            "id": "791a892ac98deaf9",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "书签"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "26131cec01095d0a",
+    "type": "split",
+    "children": [
+      {
+        "id": "1d2c0164acb04344",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c005123f3e1d7436",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "基础语法/7. 序列.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "7. 序列 的反向链接列表"
+            }
+          },
+          {
+            "id": "082d820140777256",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "基础语法/7. 序列.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "7. 序列 的出链列表"
+            }
+          },
+          {
+            "id": "d34e534497f80a7c",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "标签"
+            }
+          },
+          {
+            "id": "95df8e3670763c81",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "添加笔记属性"
+            }
+          },
+          {
+            "id": "28dcd6d1616d6316",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "基础语法/10. 映射.md",
+                "followCursor": true,
+                "showSearch": true,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "10. 映射 的大纲"
+            }
+          }
+        ],
+        "currentTab": 4
+      }
+    ],
+    "direction": "horizontal",
+    "width": 473.5,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false,
+      "bases:新建数据库": false,
+      "gemini-scribe:Gemini Scribe: Agent Mode": false
+    }
+  },
+  "active": "c978c6e8477d2099",
+  "lastOpenFiles": [
+    "基础语法/9. 集合.md",
+    "基础语法/1. python的类型.md",
+    "todo.md",
+    "基础语法/10. 映射.md",
+    "基础语法/8. 惰性执行结构.md",
+    "基础语法/7. 序列.md",
+    "gemini-scribe/Agent-Sessions",
+    "gemini-scribe/Prompts/example-expert.md",
+    "gemini-scribe/Prompts",
+    "gemini-scribe"
+  ]
+}
