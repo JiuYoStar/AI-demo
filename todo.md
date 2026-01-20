@@ -114,3 +114,8 @@ web端bug分析
 ​    99243 依赖office,暂无法修复
 
 ​    99240 UI定义不是问题
+
+
+
+
+.markdown-preview-view.is-readable-line-width .markdown-preview-sizer
